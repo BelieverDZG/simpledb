@@ -18,13 +18,33 @@ import java.util.NoSuchElementException;
  */
 public class HeapPage implements Page {
 
+    /**
+     * 页号
+     */
     final HeapPageId pid;
+
+    /**
+     * 元组描述
+     */
     final TupleDesc td;
+
+    /**
+     * 页头
+     */
     final byte[] header;
+
+    /**
+     * 当前页包含的元组
+     */
     final Tuple[] tuples;
+
+    /**
+     * slot槽
+     */
     final int numSlots;
 
     byte[] oldData;
+
     private final Byte oldDataLock = (byte) 0;
 
     /**
@@ -44,22 +64,24 @@ public class HeapPage implements Page {
      * @see Catalog#getTupleDesc
      * @see BufferPool#getPageSize()
      */
-    public HeapPage(HeapPageId id, byte[] data) throws IOException {
-        this.pid = id;
-        this.td = Database.getCatalog().getTupleDesc(id.getTableId());
+    public HeapPage(HeapPageId heapPageId, byte[] data) throws IOException {
+        this.pid = heapPageId;
+        this.td = Database.getCatalog().getTupleDesc(heapPageId.getTableId());
         this.numSlots = getNumTuples();
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data));
 
         // allocate and read the header slots of this page
         header = new byte[getHeaderSize()];
-        for (int i = 0; i < header.length; i++)
+        for (int i = 0; i < header.length; i++) {
             header[i] = dis.readByte();
+        }
 
         tuples = new Tuple[numSlots];
         try {
             // allocate and read the actual records of this page
-            for (int i = 0; i < tuples.length; i++)
+            for (int i = 0; i < tuples.length; i++) {
                 tuples[i] = readNextTuple(dis, i);
+            }
         } catch (NoSuchElementException e) {
             e.printStackTrace();
         }
@@ -70,24 +92,35 @@ public class HeapPage implements Page {
 
     /**
      * Retrieve the number of tuples on this page.
+     * <p>
      *
-     * @return the number of tuples on this page
+     * @return the number of tuples on this page 当前页元组的个数
      */
     private int getNumTuples() {
         // some code goes here
-        return 0;
-
+        if (numSlots != 0) {
+            return numSlots;
+        }
+        return Math.floorDiv(BufferPool.getPageSize() * 8, td.getSize() * 8 + 1);
+//        return (BufferPool.getPageSize() * 8) / (td.getSize() * 8 + 1);
     }
 
     /**
-     * Computes the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
+     * Computes the number of bytes in the header of a page in a HeapFile with each tuple
+     * occupying tupleSize bytes
      *
-     * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
+     * @return the number of bytes in the header of a page in a HeapFile
+     * with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {
 
         // some code goes here
-        return 0;
+        /*
+        getNumTuples() = 337时：
+        * Math.ceil(getNumTuples() / 8) = 42
+        * Math.ceil(getNumTuples() / 8.0) = 43
+        * */
+        return (int) Math.ceil(getNumTuples() / 8.0);
 
     }
 
@@ -95,6 +128,7 @@ public class HeapPage implements Page {
      * Return a view of this page before it was modified
      * -- used by recovery
      */
+    @Override
     public HeapPage getBeforeImage() {
         try {
             byte[] oldDataRef = null;
@@ -110,6 +144,7 @@ public class HeapPage implements Page {
         return null;
     }
 
+    @Override
     public void setBeforeImage() {
         synchronized (oldDataLock) {
             oldData = getPageData().clone();
@@ -119,9 +154,11 @@ public class HeapPage implements Page {
     /**
      * @return the PageId associated with this page.
      */
+    @Override
     public HeapPageId getId() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        //throw new UnsupportedOperationException("implement this");
+        return pid;
     }
 
     /**
@@ -293,7 +330,13 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int emptySlots = 0;
+        for (int i = 0; i < getNumTuples(); i++) {
+            if (!isSlotUsed(i)) {
+                emptySlots++;
+            }
+        }
+        return emptySlots;
     }
 
     /**
@@ -301,7 +344,26 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+        //例如有18个slots，而且全是used的，那么header的二进制数据为[11111111, 11111111, 00000011]
+        //最后一个byte的前面六个0i并不对应slot
+
+        //计算在第几个字节
+        int byteNum = i / 8;
+        //计算在该字节的第几位,从右往左算（这是因为JVM用big-ending）
+        int posInByte = i % 8;
+        return isOne(header[byteNum], posInByte);
+    }
+
+    /**
+     * @param target    要判断的bit所在的byte
+     * @param posInByte 要判断的bit在byte的从右往左的偏移量，从0开始
+     * @return target从右往左偏移量pos处的bit是否为1
+     */
+    private boolean isOne(byte target, int posInByte) {
+        // 例如该byte是11111011,pos是2(也就是0那个bit的位置)
+        // 那么只需先左移7-2=5位即可通过符号位来判断，注意要强转
+
+        return (byte) (target << (7 - posInByte)) < 0;
     }
 
     /**
@@ -318,7 +380,42 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        //TODO 若tuples为null，那么其迭代器还存在吗
+        //Arrays.asList(tuples).iterator() TODO 分析报错NPE原因
+        return new UsedTupleIterator();
+    }
+
+    private class UsedTupleIterator implements Iterator<Tuple> {
+
+        /**
+         * 例子：header数组与遍历过程各个量的变化如下
+         * headers: [00101000]
+         * index:   [01234567]
+         * pos:     [00011222]
+         * pos在找到一个为1的bit之后才加一
+         */
+
+        private int pos = 0;
+        private int index = 0;//tuple数组的下标变化
+        private int usedTuplesNum = getNumTuples() - getNumEmptySlots();
+
+        @Override
+        public boolean hasNext() {
+            return index < getNumTuples() && pos < usedTuplesNum;
+        }
+
+        @Override
+        public Tuple next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            //直到找到在使用的(对应的slot非空的)tuple，再返回
+            while (!isSlotUsed(index)) {
+                index++;
+            }
+            pos++;
+            return tuples[index++];
+        }
     }
 
 }

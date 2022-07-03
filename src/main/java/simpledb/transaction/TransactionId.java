@@ -5,39 +5,46 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * TransactionId is a class that contains the identifier of a transaction.
+ *
+ * @author PC
  */
 public class TransactionId implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     static final AtomicLong counter = new AtomicLong(0);
-    final long myid;
+
+    final long currentTransactionId;
 
     public TransactionId() {
-        myid = counter.getAndIncrement();
+        currentTransactionId = counter.getAndIncrement();
     }
 
     public long getId() {
-        return myid;
+        return currentTransactionId;
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         TransactionId other = (TransactionId) obj;
-        return myid == other.myid;
+        return currentTransactionId == other.currentTransactionId;
     }
 
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + (int) (myid ^ (myid >>> 32));
+        result = prime * result + (int) (currentTransactionId ^ (currentTransactionId >>> 32));
         return result;
     }
 }

@@ -289,11 +289,21 @@ public class LogicalPlan {
      */
     static Aggregator.Op getAggOp(String s) throws ParsingException {
         s = s.toUpperCase();
-        if (s.equals("AVG")) return Aggregator.Op.AVG;
-        if (s.equals("SUM")) return Aggregator.Op.SUM;
-        if (s.equals("COUNT")) return Aggregator.Op.COUNT;
-        if (s.equals("MIN")) return Aggregator.Op.MIN;
-        if (s.equals("MAX")) return Aggregator.Op.MAX;
+        if ("AVG".equals(s)) {
+            return Aggregator.Op.AVG;
+        }
+        if ("SUM".equals(s)) {
+            return Aggregator.Op.SUM;
+        }
+        if ("COUNT".equals(s)) {
+            return Aggregator.Op.COUNT;
+        }
+        if ("MIN".equals(s)) {
+            return Aggregator.Op.MIN;
+        }
+        if ("MAX".equals(s)) {
+            return Aggregator.Op.MAX;
+        }
         throw new ParsingException("Unknown predicate " + s);
     }
 

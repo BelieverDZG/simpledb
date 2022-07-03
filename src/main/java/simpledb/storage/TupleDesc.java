@@ -3,7 +3,6 @@ package simpledb.storage;
 import simpledb.common.Type;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -76,8 +75,28 @@ public class TupleDesc implements Serializable {
      */
     public Iterator<TDItem> iterator() {
         // some code goes here
-        return Arrays.asList(tdAr).iterator();
+        //return Arrays.asList(tdAr).iterator();
+        return new TDItemIterator();
     }
+
+    private class TDItemIterator implements Iterator<TDItem> {
+
+        private int pos = 0;
+
+        @Override
+        public boolean hasNext() {
+            return tdAr.length > pos;
+        }
+
+        @Override
+        public TDItem next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            return tdAr[pos++];
+        }
+    }
+
 
     private static final long serialVersionUID = 1L;
 

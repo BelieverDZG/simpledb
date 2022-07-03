@@ -115,6 +115,10 @@ public class SystemTestUtil {
             throws DbException, TransactionAbortedException {
         List<List<Integer>> copy = new ArrayList<>(tuples);
 
+        System.out.println(copy);
+        boolean equals = copy.equals(tuples);
+
+        System.out.println(equals);
         if (Debug.isEnabled()) {
             Debug.log("Expected tuples:");
             for (List<Integer> t : copy) {
@@ -123,15 +127,28 @@ public class SystemTestUtil {
         }
 
         iterator.open();
+        int countt = 0;
         while (iterator.hasNext()) {
+            countt++;
             Tuple t = iterator.next();
             List<Integer> list = tupleToList(t);
+            /*
+            [32261]
+            scanned tuple: 32261
+             (not expected)
+
+             元组重复删除了两次
+            * */
+            System.out.println();
+            System.out.println(list);
             boolean isExpected = copy.remove(list);
             Debug.log("scanned tuple: %s (%s)", t, isExpected ? "expected" : "not expected");
             if (!isExpected) {
+                System.out.println(countt);
                 Assert.fail("expected tuples does not contain: " + t);
             }
         }
+        System.out.println(countt);
         iterator.close();
 
         if (!copy.isEmpty()) {

@@ -1,8 +1,8 @@
 package simpledb.storage;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  * Tuple maintains information about the contents of a tuple. Tuples have a
@@ -127,8 +127,25 @@ public class Tuple implements Serializable {
      */
     public Iterator<Field> fields() {
         // some code goes here
-        return Arrays.asList(fields).iterator();
-//        l
+        //return Arrays.asList(fields).iterator();
+        return new FieldIterator();
+    }
+
+    private class FieldIterator implements Iterator<Field> {
+        private int pos = 0;
+
+        @Override
+        public boolean hasNext() {
+            return fields.length > pos;
+        }
+
+        @Override
+        public Field next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            return fields[pos++];
+        }
     }
 
     /**

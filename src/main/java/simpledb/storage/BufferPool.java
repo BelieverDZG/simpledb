@@ -1,11 +1,15 @@
 package simpledb.storage;
 
+import simpledb.common.Catalog;
+import simpledb.common.Database;
 import simpledb.common.DbException;
 import simpledb.common.Permissions;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -34,24 +38,41 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
 
     /**
+     * pageid --> page
+     */
+     /*
+     下述使用DBFile的形式去获取页，导致ScanTest中单元测试testSmall、testCache异常
+     */
+    //private static Map<Integer, Page> pageCacheMap;
+    private static Map<PageId, Page> pageCacheMap;
+
+    public final int MAX_PAGE_SIZE;
+
+    /**
      * Creates a BufferPool that caches up to numPages pages.
      *
      * @param numPages maximum number of pages in this buffer pool.
      */
     public BufferPool(int numPages) {
         // some code goes here
+        MAX_PAGE_SIZE = numPages;
+        pageCacheMap = new HashMap<>();
     }
 
     public static int getPageSize() {
         return pageSize;
     }
 
-    // THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
+    /**
+     * THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
+     */
     public static void setPageSize(int pageSize) {
         BufferPool.pageSize = pageSize;
     }
 
-    // THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
+    /**
+     * THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
+     */
     public static void resetPageSize() {
         BufferPool.pageSize = DEFAULT_PAGE_SIZE;
     }
@@ -74,7 +95,26 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        if (tid == null || pid == null || perm == null) {
+            throw new IllegalArgumentException("获取数据页参数异常！");
+        }
+        //int tableId = pid.getTableId();
+        if (pageCacheMap.containsKey(pid)) {
+            return pageCacheMap.get(pid);
+        }
+        //todo 锁实现？？？
+        synchronized (this) {
+            Catalog catalog = Database.getCatalog();
+            /*
+             下述使用DBFile的形式去获取页，导致ScanTest中单元测试testSmall、testCache异常
+             */
+            DbFile dbFile = catalog.getDatabaseFile(pid.getTableId());
+            dbFile.readPage(pid);
+            HeapFile table = (HeapFile) catalog.getDatabaseFile(pid.getTableId());
+            Page page = dbFile.readPage(pid);
+            pageCacheMap.put(pid, page);
+            return page;
+        }
     }
 
     /**

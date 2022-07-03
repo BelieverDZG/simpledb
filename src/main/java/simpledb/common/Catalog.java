@@ -8,10 +8,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * The Catalog keeps track of all available tables in the database and their
@@ -25,11 +22,35 @@ import java.util.UUID;
 public class Catalog {
 
     /**
+     * 表id --> 表文件
+     */
+    private Map<Integer, DbFile> tableIdToFileMap;
+
+    /**
+     * 表id --> 表主键
+     */
+    private Map<Integer, String> tableIdToTablePrimaryKey;
+    /**
+     * 表id --> 表名
+     */
+    private Map<Integer, String> tableIdToTableNameMap;
+
+    /**
+     * 表名 --> 表id
+     */
+    private Map<String, Integer> tableNameToTableIdMap;
+
+
+    /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // some code goes here
+        tableIdToFileMap = new HashMap<>();
+        tableIdToTablePrimaryKey = new HashMap<>();
+        tableIdToTableNameMap = new HashMap<>();
+        tableNameToTableIdMap = new HashMap<>();
     }
 
     /**
@@ -38,12 +59,27 @@ public class Catalog {
      *
      * @param file      the contents of the table to add;  file.getId() is the identfier of
      *                  this file/tupledesc param for the calls getTupleDesc and getFile
-     * @param name      the name of the table -- may be an empty string.  May not be null.  If a name
+     * @param tableName the name of the table -- may be an empty string.  May not be null.  If a name
      *                  conflict exists, use the last table to be added as the table for a given name.
      * @param pkeyField the name of the primary key field
      */
-    public void addTable(DbFile file, String name, String pkeyField) {
+    public void addTable(DbFile file, String tableName, String pkeyField) {
         // some code goes here
+        if (tableName == null || pkeyField == null) {
+            throw new IllegalArgumentException("表名或主键不能为空！");
+        }
+        int tableID = file.getId();
+        //表名若已存在，则删除当前文件
+        if (tableNameToTableIdMap.containsKey(tableName)) {
+            int tempTableId = tableNameToTableIdMap.get(tableName);
+            tableIdToFileMap.remove(tempTableId);
+            tableIdToTableNameMap.remove(tempTableId);
+            tableIdToTablePrimaryKey.remove(tempTableId);
+        }
+        tableNameToTableIdMap.put(tableName, tableID);
+        tableIdToFileMap.put(tableID, file);
+        tableIdToTableNameMap.put(tableID, tableName);
+        tableIdToTablePrimaryKey.put(tableID, pkeyField);
     }
 
     public void addTable(DbFile file, String name) {
@@ -69,7 +105,10 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        if (!tableNameToTableIdMap.containsKey(name)) {
+            throw new NoSuchElementException("表名: " + name + "不存在！");
+        }
+        return tableNameToTableIdMap.get(name);
     }
 
     /**
@@ -81,7 +120,11 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if (!tableIdToFileMap.containsKey(tableid)) {
+            throw new NoSuchElementException("表不存在！");
+        }
+        DbFile dbFile = tableIdToFileMap.get(tableid);
+        return dbFile.getTupleDesc();
     }
 
     /**
@@ -93,22 +136,22 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        return tableIdToFileMap.get(tableid);
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        return null;
+        return tableIdToTablePrimaryKey.get(tableid);
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        return tableIdToFileMap.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
+        return tableIdToTableNameMap.get(id);
     }
 
     /**
@@ -116,6 +159,10 @@ public class Catalog {
      */
     public void clear() {
         // some code goes here
+        tableIdToFileMap.clear();
+        tableIdToTableNameMap.clear();
+        tableIdToTablePrimaryKey.clear();
+        tableNameToTableIdMap.clear();
     }
 
     /**
